@@ -1,0 +1,2 @@
+This is a small set of code snippets for stencil computations on parallel and distributed memory machines.
+The code uses c++, cilk and MPI. This would be useful for someone who is new to these technologies.
