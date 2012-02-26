@@ -1,7 +1,7 @@
 #include<iostream>
 #include<iomanip>
 using namespace std;
-bool enableDebug = true;
+bool enableDebug = false;
 
 /* check for mem-issues*/
 bool initArray(float ***& threeDimSpace, int xD, int yD, int zD)
@@ -44,7 +44,7 @@ for(int x=0;x<xD;x++,cout<<endl)
 	for(int y=0;y<yD;y++,cout<<endl)
 		for(int z=0;z<zD;z++)
 			{						
-				cout<<setw(10)<<threeDimSpace[x][y][z];			
+				cout<<setw(10)<<fixed<<threeDimSpace[x][y][z];			
 			}
 return;
 }
@@ -97,11 +97,12 @@ for(int t=1;t<=tf;t++)
 
 int main()
 {
-int n, tf;
+int n, q,  tf;
 float c0,c1,c2,c3; 
 float *** threeDimSpace;
-while(cin>>n>>tf)	/* Take Arbitrary number of inputs through stdin */
+while(cin>>q>>tf)	/* Take Arbitrary number of inputs through stdin */
 	{
+	n = (1<<q);
 	cin>>c0>>c1>>c2>>c3;
 	initArray(threeDimSpace, n, n, n );    /* Initialize the array */
 		
