@@ -44,7 +44,7 @@ for(int x=0;x<xD;x++,cout<<endl)
 	for(int y=0;y<yD;y++,cout<<endl)
 		for(int z=0;z<zD;z++)
 			{						
-				cout<<setw(10)<<fixed<<threeDimSpace[x][y][z];			
+				cout<<setw(10)<<fixed<<threeDimSpace[x][y][z]<<' ';			
 			}
 return;
 }
