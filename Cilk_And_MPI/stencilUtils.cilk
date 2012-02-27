@@ -1,0 +1,194 @@
+#include<iostream>
+#include<sstream>
+#include<iomanip>
+#include<cilk.h>
+using namespace std;
+
+/* check for mem-issues*/
+bool initArray(float ***& threeDimSpace, int xD, int yD, int zD)
+{
+	//if(enableDebug)
+	//	myStream<<"Creating "<<xD<<"X"<<yD<<"X"<<zD<<" space for stencil computations"<<endl;
+
+	threeDimSpace = new float**[xD];
+
+	cilk_for(int i=0;i<xD;i++)
+	{
+		threeDimSpace[i] = new float*[yD];
+		cilk_for(int j=0;j<yD;j++)
+			threeDimSpace[i][j] = new float[zD];
+	}
+	return true; /* Success! */
+}
+
+/* To Deallocate the array */
+bool cleanArray(float ***& threeDimSpace, int xD, int yD, int zD)
+{
+	//if(enableDebug)
+	//	myStream<<"Freeing "<<xD<<"X"<<yD<<"X"<<zD<<" space for stencil computations"<<endl;
+
+	cilk_for(int i=0;i<xD;i++)
+	{
+		cilk_for(int j=0;j<yD;j++)
+		{
+			delete[] threeDimSpace[i][j];
+		}	
+		delete[] threeDimSpace[i];
+	}
+	delete[] threeDimSpace;
+return true;
+}
+
+void printSerialBuffer(float *buf, int len)
+{
+stringstream ss1;
+ss1<<"SerialStream : ";
+for(int i=0;i<len;i++)
+	ss1<<buf[i]<<' ';
+cout<<ss1.str()<<endl;
+return;
+}
+
+/* print Result */
+void printResult(float *** threeDimSpace, int xD, int yD, int zD)
+{
+stringstream ss1;
+ss1<<"3D Grid ";
+cilk_for(int x=0;x<xD;x++)
+	cilk_for(int y=0;y<yD;y++)
+		cilk_for(int z=0;z<zD;z++)
+			{						
+				ss1<<setw(10)<<fixed<<threeDimSpace[x][y][z]<<' ';			
+			}
+//myStream<<ss1.str();
+return;
+}
+
+/* Copy original Space to a buffer 
+ * There is no check for mallocs, frees, wild-ptrs etc
+ * Use all the functions carefully
+ */
+void copySpace(float ***& src, float***& dst, int xD, int yD, int zD)
+{
+	//if(enableDebug)
+	//	myStream<<"Copying from "<<xD<<"X"<<yD<<"X"<<zD<<" original space for stencil computations"<<endl;
+
+cilk_for(int x=0;x<xD;x++)
+	cilk_for(int y=0;y<yD;y++)
+		cilk_for(int z=0;z<zD;z++)
+			dst[x][y][z] = src[x][y][z];
+return;
+}
+
+/*Perform stenicl Compuatations */
+void computeStencil(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
+{
+float *** tmpSpace;
+initArray(tmpSpace, xD, yD, zD);
+for(int t=1;t<=tf;t++)
+	{
+	copySpace(threeDimSpace, tmpSpace, xD, yD, zD);
+	
+	cilk_for(int x =0;x<xD;x++)
+		cilk_for(int y=0;y<yD;y++)
+			cilk_for(int z=0;z<zD;z++)
+				{
+				float tmp = c0*tmpSpace[x][y][z];
+
+				if(z<(zD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y][z+1];
+				if(z>0) tmp+=(c1+c2+c3)*tmpSpace[x][y][z-1];
+	
+			
+				if(y<(yD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y+1][z];
+				if(y>0) tmp+=(c1+c2+c3)*tmpSpace[x][y-1][z];
+				
+				if(x<(xD-1)) tmp+=(c1+c2+c3)*tmpSpace[x+1][y][z];
+				if(x>0) tmp+=(c1+c2+c3)*tmpSpace[x-1][y][z];
+				
+				threeDimSpace[x][y][z] = tmp;
+				}
+	}
+}
+
+void serialize(float*& tmp,float*** origSpace, int dx, int dy, int dz)
+{
+//float * tmp = new float[dx*dy*dz];
+//int ctr= 0;
+cilk_for(int i=0;i<dx;i++)
+	cilk_for(int j=0;j<dy;j++)
+		cilk_for(int k=0;k<dz;k++)
+			{
+				tmp[i*dx*dy+j*dy+k] = origSpace[i][j][k];
+				//ctr++;			
+			}
+return;
+}
+
+bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
+{
+	int ctr = 0;
+	cilk_for(int i=0;i<dx;i++)
+		cilk_for(int j=0;j<dy;j++)
+			cilk_for(int k=0;k<dz;k++)
+				{
+					mySpace[i][j][k] = buf[i*dx*dy+j*dy+k];
+					//ctr++;
+				}
+return true;
+}
+
+extern "C++" bool initArray_CPP(float ***& threeDimSpace, int xD, int yD, int zD)
+{
+return cilk::run(initArray, threeDimSpace, xD, yD,zD);
+}
+extern "C++" bool cleanArray_CPP(float ***& threeDimSpace, int xD, int yD, int zD)
+{
+return cilk::run(cleanArray, threeDimSpace, xD, yD, zD);
+}
+
+extern "C++" void printSerialBuffer_CPP(float *buf, int len)
+{
+cilk::run(printSerialBuffer, buf, len);
+return;
+}
+
+extern "C++" void printResult_CPP(float *** threeDimSpace, int xD, int yD, int zD)
+{
+cilk::run(printResult, threeDimSpace, xD, yD, zD);
+return;
+}
+
+extern "C++" void copySpace_CPP(float ***& src, float***& dst, int xD, int yD, int zD)
+{
+cilk::run(copySpace, src, dst, xD, yD,zD);
+return;
+}
+
+extern "C++" void computeStencil_CPP(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
+{
+cilk::run(computeStencil, threeDimSpace, c0, c1, c2, c3, tf, xD, yD, zD);
+return;
+}
+
+extern "C++" void serialize_CPP(float*& tmp,float*** origSpace, int dx, int dy, int dz)
+{
+cilk::run(serialize,tmp,origSpace, dx, dy, dz);
+return;
+}
+
+extern "C++" bool deserializeBuffer_CPP(float***& mySpace, float* buf, int dx, int dy, int dz)
+{
+return cilk::run(deserializeBuffer, mySpace, buf, dx,dy, dz);
+}
+
+
+
+
+
+
+
+
+
+
+
+

@@ -138,6 +138,7 @@ bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 					mySpace[i][j][k] = buf[ctr];
 					ctr++;
 				}
+return true;
 }
 /*
 bool copySpace(float*** src, float***& dst, int dx, int dy, int dz)
