@@ -139,15 +139,25 @@ bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 					ctr++;
 				}
 }
+/*
+bool copySpace(float*** src, float***& dst, int dx, int dy, int dz)
+{
+for(int i=0;i<dx;i++)
+	for(int j=0;j<dy;j++)
+		for(int k=0;k<dz;k++)
+			dst[i][j][k] = src[i][j][k];
+return true;
+}
+*/
 
 int main(int argc, char* argv[])
 {
-int n=4, q,  tf, dx;
-float c0,c1,c2,c3; 
+int n=4, q,  dx;
+float c0 =1,c1=1,c2=1,c3=1, tf=1.0; 
 float *** threeDimSpace;
 float*** finalResult;
-float *** workChunk;	
-
+float *** workChunk, ***tmpChunk;	
+float *buf;
 int workerCount = 4; /* This means we need workRatio workers */
 
 int myRank, totWorkers;
@@ -191,8 +201,22 @@ if(myRank == 0)
 			if(dbugFlag2) myStream<<"Sending N to process "<<w<<endl;
 			MPI_Send(&n, 1, MPI_INT, w, 1, MPI_COMM_WORLD);
 		}
+		
+		float params[5];
+		params[0] = c0; 
+		params[1] = c1; 
+		params[2] = c2; 
+		params[3] = c3; 
+		params[4] = tf; 
+		
+		for(int w=1;w<=workerCount;w++)
+                {
+                        if(dbugFlag2) myStream<<"Sending N to process "<<w<<endl;
+                        MPI_Send(&params, 5, MPI_FLOAT, w, 5, MPI_COMM_WORLD);
+                }
 
-		float* buf = new float[dx*n*n];	
+
+		buf = new float[dx*n*n];	
 
 		for(int w=1;w<=workerCount;w++)
 		{
@@ -215,13 +239,23 @@ else if(myRank>=1 && myRank <= workerCount  ) {
 	MPI_Recv(&n,1, MPI_INT, 0, 1 , MPI_COMM_WORLD, &recvStatus);
 	n= 4;
 	
+	 float params[5];
+         MPI_Recv(&params, 5, MPI_FLOAT, 0, 5, MPI_COMM_WORLD, &recvStatus);
+                c0 = params[0];
+                c1 = params[1];
+                c2 = params[2];
+                c3 = params[3];
+                tf = params[4];
+	
+	//cout<<"Process : "<<myRank<<" has params "<<c0<<","<<c1<<","<<c2<<","<<c3<<"  and "<<tf<<endl;
+
 	dx = n/workerCount;
 	initArray(workChunk, dx, n, n);	
 	
 	if(dbugFlag2) myStream<<"In process :"<<myRank<</*" tmpRank = "<<tmpRank<<*/" dx = "<<dx<<" n = "<<n<<endl;
 	if(dbugFlag2) myStream<<"Process "<<myRank<<" : expecting serialized buffer of size "<<dx*n*n<<" recieved from process0 "<<endl;	
 		
-	float* buf = new float[dx*n*n];	
+	buf = new float[dx*n*n];	
 
 	MPI_Recv((void*)buf, dx*n*n , MPI_FLOAT, 0, 2 , MPI_COMM_WORLD, &recvStatus);
 	if(dbugFlag2) myStream<<"process "<<myRank<<" : serialized buffer of size "<<dx*n*n<<" recieved from process0 "<<endl;	
@@ -248,9 +282,92 @@ myStream<<"==============================================================="<<end
 
 MPI_Barrier(MPI_COMM_WORLD);
 
-/* We are donw tih the input . Now Lets start MPI - Phase2 All Calculations */
+/* We are down tih the input . Now Lets start MPI - Phase2 All Calculations */
+if(myRank>=1 && myRank<=workerCount)
+	{
+MPI_Request send_req[2], recv_req[2];
+MPI_Status stat;
+
+float* histopLayer = new float[n*n];
+float* mytopLayer = new float[n*n];
+float* hisbotLayer = new float[n*n];
+float* mybotLayer = new float[n*n];
+
+//copySpace(workChunk, tmpChunk, dx, n, n);
+initArray(tmpChunk, dx, n, n);
+
+for(int t=0;t< tf;t++)
+		{
+//	computeStencil(workChunk,1, 1, 1 , 1, 1, dx, n, n );	
+
+for(int tx=0;tx<dx;tx++)
+	for(int ty=0;ty<n;ty++)
+		for(int tz=0;tz<n;tz++)
+			tmpChunk[tx][ty][tz] = workChunk[tx][ty][tz];
+	
+	for(int x=0;x<dx;x++)
+		for(int y=0;y<n;y++)
+			for(int z=0;z<n;z++)
+				{	
+						
+				float tmp = c0*tmpChunk[x][y][z];
+				
+                                if(z<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y][z+1];
+                                if(z>0) tmp+=(c1+c2+c3)*tmpChunk[x][y][z-1];
 
 
+                                if(y<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y+1][z];
+                                if(y>0) tmp+=(c1+c2+c3)*tmpChunk[x][y-1][z];
+
+                                if(x<(dx-1)) tmp+=(c1+c2+c3)*tmpChunk[x+1][y][z];
+                                if(x>0) tmp+=(c1+c2+c3)*tmpChunk[x-1][y][z];
+				
+                                workChunk[x][y][z] = tmp;			
+				}
+		
+	for(int i=0;i<n;i++)
+		for(int j=0;j<n;j++)
+			{
+			mytopLayer[i*n+j] = tmpChunk[dx-1][i][j];
+			mybotLayer[i*n+j] = tmpChunk[0][i][j];
+			}	
+		
+		if(myRank < workerCount) {
+					MPI_Isend(mytopLayer, n*n, MPI_FLOAT, myRank+1 , 10 + 2 * t, MPI_COMM_WORLD , & send_req[ 0 ] );
+					MPI_Irecv(hisbotLayer, n*n, MPI_FLOAT, myRank +1, 11 + 2 * t, MPI_COMM_WORLD , & recv_req[ 0 ] );
+					}		
+		if(myRank > 1)
+			{			
+				MPI_Isend(mybotLayer, n*n, MPI_FLOAT, myRank -1, 11 + 2 * t, MPI_COMM_WORLD , & send_req[ 1 ] );
+				MPI_Irecv(histopLayer, n*n, MPI_FLOAT, myRank -1, 10 + 2 * t, MPI_COMM_WORLD , & recv_req[ 1 ] );
+			}
+		
+		if(myRank < workerCount) MPI_Wait(&recv_req[0], &stat);
+		if(myRank > 1)	MPI_Wait(&recv_req[1], &stat);
+	
+		if(myRank < workerCount) MPI_Wait(&send_req[0], &stat);
+		if(myRank > 1)	MPI_Wait(&send_req[1], &stat);
+		
+		
+		for(int i=0;i<n;i++)
+			for(int j=0;j<n;j++)
+				{
+				if(myRank > 1)
+					workChunk[0][i][j]+= (c1+c2+c3)*(histopLayer[i*n+j]);
+				
+				if(myRank < workerCount)
+					workChunk[dx-1][i][j]+= (c1+c2+c3)*(hisbotLayer[i*n+j]);
+				}
+		
+	}
+
+delete[] mytopLayer;
+delete[] histopLayer;
+delete[] hisbotLayer;
+delete[] mybotLayer;
+	}
+
+MPI_Barrier(MPI_COMM_WORLD);
 
 /* Phase 3 - Assemble it back and print*/
 if(myRank == 0)
@@ -292,7 +409,7 @@ if(myRank == 0)
 		for(int i=0;i<n;i++)
 			for(int j=0;j<n;j++,cout<<endl)
 				for(int k=0;k<n;k++)
-					cout<<finalResult[i][j][k]<<' ';
+					cout<<setw(10)<<finalResult[i][j][k];
 	}
 return 0;
 }
