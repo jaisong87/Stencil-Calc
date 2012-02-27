@@ -102,7 +102,7 @@ float c0,c1,c2,c3;
 float *** threeDimSpace;
 while(cin>>q>>tf)	/* Take Arbitrary number of inputs through stdin */
 	{
-	n = (1<<q);
+	n = q;//(1<<q);
 	cin>>c0>>c1>>c2>>c3;
 	initArray(threeDimSpace, n, n, n );    /* Initialize the array */
 		
