@@ -408,10 +408,10 @@ cout<<myStream.str();
 
 if(myRank == 0)
 	{
-		for(int i=0;i<n;i++)
+		for(int i=0;i<n;i++,cout<<endl)
 			for(int j=0;j<n;j++,cout<<endl)
 				for(int k=0;k<n;k++)
-					cout<<setw(10)<<finalResult[i][j][k];
+					cout<<setw(10)<<fixed<<finalResult[i][j][k]<<' ';
 	}
 return 0;
 }

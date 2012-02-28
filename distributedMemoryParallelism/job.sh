@@ -3,7 +3,7 @@
 #$ -V
 #$ -cwd
 #$ -q development
-#$ -pe 12way 12
+#$ -pe 8way 48
 #$ -N distributedStencil
 #$ -o output-$JOB_NAME
 #$ -e error-$JOB_NAME
@@ -13,4 +13,4 @@
 
 export PATH=$PATH:$HOME/cilk/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/cilk/lib
-mpirun ./distributedStencil < "../stencil0.in" 
+ibrun ./distributedStencil < "../stencil0.in" 
