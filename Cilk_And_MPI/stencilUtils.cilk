@@ -45,7 +45,7 @@ stringstream ss1;
 ss1<<"SerialStream : ";
 for(int i=0;i<len;i++)
 	ss1<<buf[i]<<' ';
-cout<<ss1.str()<<endl;
+//cout<<ss1.str()<<endl;
 return;
 }
 
@@ -80,36 +80,6 @@ cilk_for(int x=0;x<xD;x++)
 return;
 }
 
-/*Perform stenicl Compuatations */
-void computeStencil(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
-{
-float *** tmpSpace;
-initArray(tmpSpace, xD, yD, zD);
-for(int t=1;t<=tf;t++)
-	{
-	copySpace(threeDimSpace, tmpSpace, xD, yD, zD);
-	
-	cilk_for(int x =0;x<xD;x++)
-		cilk_for(int y=0;y<yD;y++)
-			cilk_for(int z=0;z<zD;z++)
-				{
-				float tmp = c0*tmpSpace[x][y][z];
-
-				if(z<(zD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y][z+1];
-				if(z>0) tmp+=(c1+c2+c3)*tmpSpace[x][y][z-1];
-	
-			
-				if(y<(yD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y+1][z];
-				if(y>0) tmp+=(c1+c2+c3)*tmpSpace[x][y-1][z];
-				
-				if(x<(xD-1)) tmp+=(c1+c2+c3)*tmpSpace[x+1][y][z];
-				if(x>0) tmp+=(c1+c2+c3)*tmpSpace[x-1][y][z];
-				
-				threeDimSpace[x][y][z] = tmp;
-				}
-	}
-}
-
 void serialize(float*& tmp,float*** origSpace, int dx, int dy, int dz)
 {
 //float * tmp = new float[dx*dy*dz];
@@ -118,7 +88,7 @@ cilk_for(int i=0;i<dx;i++)
 	cilk_for(int j=0;j<dy;j++)
 		cilk_for(int k=0;k<dz;k++)
 			{
-				tmp[i*dx*dy+j*dy+k] = origSpace[i][j][k];
+				tmp[i*dz*dy+j*dy+k] = origSpace[i][j][k];
 				//ctr++;			
 			}
 return;
@@ -131,7 +101,7 @@ bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 		cilk_for(int j=0;j<dy;j++)
 			cilk_for(int k=0;k<dz;k++)
 				{
-					mySpace[i][j][k] = buf[i*dx*dy+j*dy+k];
+					mySpace[i][j][k] = buf[i*dz*dy+j*dy+k];
 					//ctr++;
 				}
 return true;
@@ -164,11 +134,13 @@ cilk::run(copySpace, src, dst, xD, yD,zD);
 return;
 }
 
+/*
 extern "C++" void computeStencil_CPP(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
 {
 cilk::run(computeStencil, threeDimSpace, c0, c1, c2, c3, tf, xD, yD, zD);
 return;
 }
+*/
 
 extern "C++" void serialize_CPP(float*& tmp,float*** origSpace, int dx, int dy, int dz)
 {
