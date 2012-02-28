@@ -4,7 +4,7 @@
 #$ -cwd
 #$ -q development
 #$ -pe 8way 48
-#$ -N distributedStencil
+#$ -N distributedStencilMPI+CILK
 #$ -o output-$JOB_NAME
 #$ -e error-$JOB_NAME
 #$ -M jaisong87@gmail.com

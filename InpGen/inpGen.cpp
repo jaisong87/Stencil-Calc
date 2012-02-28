@@ -19,7 +19,7 @@ cin>>c0>>c1>>c2>>c3;
 cin>>case_type;
 
 q = (1<<N);
-cout<<N<<" "<<Ft<<endl;
+cout<<q<<" "<<Ft<<endl;
 cout<<c0<<" "<<c1<<" "<<c2<<" "<<c3<<endl;
 
 for(int i=0;i<q;i++)
