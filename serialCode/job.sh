@@ -4,7 +4,7 @@
 #$ -cwd
 #$ -q development
 #$ -pe 12way 12
-#$ -N inpGen
+#$ -N serialStencil
 #$ -o output-$JOB_NAME
 #$ -e error-$JOB_NAME
 #$ -M jaisong87@gmail.com
@@ -13,4 +13,4 @@
 
 export PATH=$PATH:$HOME/cilk/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/cilk/lib
-./serialStencil < "stencilMax.in" > "stencil.out"
+./serialStencil < "../stencil0.in"

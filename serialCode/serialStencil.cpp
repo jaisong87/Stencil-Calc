@@ -100,7 +100,7 @@ int main()
 int n, q,  tf;
 float c0,c1,c2,c3; 
 float *** threeDimSpace;
-while(cin>>q>>tf)	/* Take Arbitrary number of inputs through stdin */
+if(cin>>q>>tf)	/* Take Arbitrary number of inputs through stdin */
 	{
 	n = q;//(1<<q);
 	cin>>c0>>c1>>c2>>c3;
