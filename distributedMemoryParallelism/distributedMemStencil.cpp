@@ -15,6 +15,7 @@ bool dumpSelfStream = false; /* Set this to see dbug prints from every worker */
 
 int rank;
 stringstream myStream; /* Stream of one worker,  */
+//#define myStream cout
 
 /* Just an Init-Routine - Performs malloc  
  */
@@ -233,7 +234,6 @@ else if(myRank>=1 && myRank <= workerCount  ) {
 	MPI_Status recvStatus;
 	
 	MPI_Recv(&n,1, MPI_INT, 0, 1 , MPI_COMM_WORLD, &recvStatus);
-	n= 4;
 	
 	 float params[5];
          MPI_Recv(&params, 5, MPI_FLOAT, 0, 5, MPI_COMM_WORLD, &recvStatus);
@@ -400,6 +400,7 @@ else if(myRank>=1 && myRank<=workerCount)
 
 MPI_Barrier(MPI_COMM_WORLD);
 MPI_Finalize();
+
 if(dumpSelfStream)
 	{
 cout<<myStream.str();
