@@ -107,6 +107,45 @@ bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 return true;
 }
 
+void updateFromNeighbour(float*** &workChunk, float c0, float c1, float c2, float c3, float* histopLayer, float* hisbotLayer, int myRank, int workerCount, int n, int dx)
+	{
+  	cilk_for(int i=0;i<n;i++)
+                        cilk_for(int j=0;j<n;j++)
+                                {
+                                if(myRank > 1)
+                                        workChunk[0][i][j]+= (c1+c2+c3)*(histopLayer[i*n+j]);
+
+                                if(myRank < workerCount)
+                                        workChunk[dx-1][i][j]+= (c1+c2+c3)*(hisbotLayer[i*n+j]);
+                                }
+return;
+}
+
+void computeStencil(float***&workChunk,float***& tmpChunk, int dx, int n, float c0, float c1, float c2, float c3)
+{
+  cilk_for(int x=0;x<dx;x++)
+                cilk_for(int y=0;y<n;y++)
+                        cilk_for(int z=0;z<n;z++)
+                                {       
+                                                
+                                float tmp = c0*tmpChunk[x][y][z];
+                                
+                                if(z<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y][z+1];
+                                if(z>0) tmp+=(c1+c2+c3)*tmpChunk[x][y][z-1];
+
+
+                                if(y<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y+1][z];
+                                if(y>0) tmp+=(c1+c2+c3)*tmpChunk[x][y-1][z];
+
+                                if(x<(dx-1)) tmp+=(c1+c2+c3)*tmpChunk[x+1][y][z];
+                                if(x>0) tmp+=(c1+c2+c3)*tmpChunk[x-1][y][z];
+                                
+                                workChunk[x][y][z] = tmp;                       
+                                }
+
+return;
+}
+
 extern "C++" bool initArray_CPP(float ***& threeDimSpace, int xD, int yD, int zD)
 {
 return cilk::run(initArray, threeDimSpace, xD, yD,zD);
@@ -153,14 +192,12 @@ extern "C++" bool deserializeBuffer_CPP(float***& mySpace, float* buf, int dx, i
 return cilk::run(deserializeBuffer, mySpace, buf, dx,dy, dz);
 }
 
+extern "C++" void updateFromNeighbour_CPP(float*** &workChunk, float c0, float c1, float c2, float c3, float* histopLayer, float* hisbotLayer,int myRankk, int workerCount, int n, int dx)
+{
+cilk::run(updateFromNeighbour,workChunk, c0, c1, c2, c3, histopLayer, hisbotLayer,myRankk, workerCount, n, dx);
+}
 
-
-
-
-
-
-
-
-
-
-
+extern "C++" void computeStencil_CPP(float***&workChunk, float***& tmpChunk, int dx, int n, float c0, float c1, float c2, float c3){
+cilk::run(computeStencil, workChunk, tmpChunk, dx, n, c0, c1, c2, c3);
+return;
+}

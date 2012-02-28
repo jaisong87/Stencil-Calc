@@ -21,10 +21,12 @@ extern "C++" void printSerialBuffer_CPP(float *buf, int len);
 
 extern "C++" void printResult_CPP(float *** threeDimSpace, int xD, int yD, int zD);
 extern "C++" void copySpace_CPP(float ***& src, float***& dst, int xD, int yD, int zD);
-//extern "C++" void computeStencil_CPP(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD);
 
 extern "C++" void serialize_CPP(float*& tmp,float*** origSpace, int dx, int dy, int dz);
 extern "C++" bool deserializeBuffer_CPP(float***& mySpace, float* buf, int dx, int dy, int dz);
+extern "C++" void updateFromNeighbour_CPP(float*** &workChunk, float c0, float c1, float c2, float c3, float* histopLayer, float* hisbotLayer,int myRankk, int workerCount, int n, int dx);
+
+extern "C++" void computeStencil_CPP(float***& workChunk, float***&tmpChunk, int dx, int n, float c0, float c1, float c2, float c3 );
 
 /* Main Code */
 int main(int argc, char* argv[])
@@ -173,6 +175,8 @@ for(int tx=0;tx<dx;tx++)
 			tmpChunk[tx][ty][tz] = workChunk[tx][ty][tz];
 	
 	/* Perform Computations */
+	computeStencil_CPP(workChunk, tmpChunk, dx, n, c0, c1, c2, c3);
+	/*
 	for(int x=0;x<dx;x++)
 		for(int y=0;y<n;y++)
 			for(int z=0;z<n;z++)
@@ -192,7 +196,8 @@ for(int tx=0;tx<dx;tx++)
 				
                                 workChunk[x][y][z] = tmp;			
 				}
-		
+	*/	
+	
 	/* Construct own topLayer and BottomLayer */
 	for(int i=0;i<n;i++)
 		for(int j=0;j<n;j++)
@@ -219,6 +224,7 @@ for(int tx=0;tx<dx;tx++)
 		if(myRank > 1)	MPI_Wait(&send_req[1], &stat);
 		
 	/* Do upate on topLayes/bottom layer by using info gained from neighbour */	
+	/*
 		for(int i=0;i<n;i++)
 			for(int j=0;j<n;j++)
 				{
@@ -228,7 +234,8 @@ for(int tx=0;tx<dx;tx++)
 				if(myRank < workerCount)
 					workChunk[dx-1][i][j]+= (c1+c2+c3)*(hisbotLayer[i*n+j]);
 				}
-		
+		*/		
+	updateFromNeighbour_CPP(workChunk,  c0,  c1, c2, c3, histopLayer, hisbotLayer, myRank,workerCount, n, dx);
 	}
 /* Deleye buffers */
 delete[] mytopLayer;
@@ -276,12 +283,11 @@ MPI_Finalize();
 
 if(dumpSelfStream)
 	{
-//cout<<myStream.str();
+cout<<myStream.str();
 	}
 
 if(myRank == 0)
 	{
-	cout<<n<<"X"<<n<<"X"<<n<<endl;
 		for(int i=0;i<n;i++,cout<<endl)
 			for(int j=0;j<n;j++,cout<<endl)
 				{
