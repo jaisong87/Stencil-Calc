@@ -1,14 +1,23 @@
+/******************************************
+ *
+ * distributedMemStencil.cpp - Calculates Stencil
+ * on distributed memory architecture using MPI
+ *
+ *****************************************/
 #include<iostream>
 #include<sstream>
 #include<iomanip>
 #include<mpi.h>
 using namespace std;
-bool enableDebug = false;
-bool dbugFlag2 = false;
-int rank;
-stringstream myStream;
+bool enableDebug = false; /* detailed debug flag - dump prints to myStream */
+bool dbugFlag2 = false; /* basic debug flag - dump prints to myStream */
+bool dumpSelfStream = false; /* Set this to see dbug prints from every worker */
 
-/* check for mem-issues*/
+int rank;
+stringstream myStream; /* Stream of one worker,  */
+
+/* Just an Init-Routine - Performs malloc  
+ */
 bool initArray(float ***& threeDimSpace, int xD, int yD, int zD)
 {
 	if(enableDebug)
@@ -43,6 +52,7 @@ bool cleanArray(float ***& threeDimSpace, int xD, int yD, int zD)
 return true;
 }
 
+/* print the serial buffer for debug purposes */
 void printSerialBuffer(float *buf, int len)
 {
 stringstream ss1;
@@ -53,7 +63,7 @@ myStream<<ss1.str()<<endl;
 return;
 }
 
-/* print Result */
+/* print the 3-D space */
 void printResult(float *** threeDimSpace, int xD, int yD, int zD)
 {
 stringstream ss1;
@@ -84,7 +94,7 @@ for(int x=0;x<xD;x++)
 return;
 }
 
-/*Perform stenicl Compuatations */
+/*Perform serial-stenicl Compuatations */
 void computeStencil(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
 {
 float *** tmpSpace;
@@ -112,11 +122,12 @@ for(int t=1;t<=tf;t++)
 				threeDimSpace[x][y][z] = tmp;
 				}
 	}
+return;
 }
 
+/* serialize the buffer */
 void serialize(float*& tmp,float*** origSpace, int dx, int dy, int dz)
 {
-//float * tmp = new float[dx*dy*dz];
 int ctr= 0;
 for(int i=0;i<dx;i++)
 	for(int j=0;j<dy;j++)
@@ -128,6 +139,7 @@ for(int i=0;i<dx;i++)
 return;
 }
 
+/* deserialize back the buffer */
 bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 {
 	int ctr = 0;
@@ -140,16 +152,6 @@ bool deserializeBuffer(float***& mySpace, float* buf, int dx, int dy, int dz)
 				}
 return true;
 }
-/*
-bool copySpace(float*** src, float***& dst, int dx, int dy, int dz)
-{
-for(int i=0;i<dx;i++)
-	for(int j=0;j<dy;j++)
-		for(int k=0;k<dz;k++)
-			dst[i][j][k] = src[i][j][k];
-return true;
-}
-*/
 
 int main(int argc, char* argv[])
 {
@@ -166,15 +168,13 @@ MPI_Init(&argc, &argv);
 MPI_Comm_size(MPI_COMM_WORLD, &totWorkers);
 MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-//myStream<<"My rank is "<<myRank<<" out of "<<totWorkers<<endl;
-
-//while
+/* The code takes only one instance of Input - For multiple input , we can have a flag and a while loop here for the whole code*/
 if(myRank == 0)
 {
 	if(enableDebug)
 	{
 		stringstream ss1;
-		if(dbugFlag2) ss1<<"I'm processor "<<myRank<<" doing all the work"<<endl;
+		if(dbugFlag2) ss1<<"I'm processor "<<myRank<<" co-ordinating all the work"<<endl;
 		myStream<<ss1.str();
 	}
 
@@ -190,10 +190,6 @@ if(myRank == 0)
 				for(int k=0;k<n;k++)
 					cin>>threeDimSpace[i][j][k];
 
-		//computeStencil(threeDimSpace, c0, c1, c2, c3, tf, n , n, n );
-
-		//printResult(threeDimSpace, n, n, n);	/* Print the Result after Computation */
-		//cleanArray(threeDimSpace, n, n, n);	/* Cleanup the array */
 		dx = n/workerCount;
 		if(dbugFlag2) myStream<<dx<<" sized chunks for "<<workerCount<<" workers"<<endl;	
 
@@ -210,6 +206,7 @@ if(myRank == 0)
 		params[3] = c3; 
 		params[4] = tf; 
 		
+		/* send N to all processors */	
 		for(int w=1;w<=workerCount;w++)
                 {
                         if(dbugFlag2) myStream<<"Sending N to process "<<w<<endl;
@@ -218,7 +215,8 @@ if(myRank == 0)
 
 
 		buf = new float[dx*n*n];	
-
+		
+		/* Send the workChunk to all the processors */
 		for(int w=1;w<=workerCount;w++)
 		{
 			serialize(buf, &threeDimSpace[(w-1)*dx], dx, n, n);
@@ -226,14 +224,11 @@ if(myRank == 0)
 
 			if(dbugFlag2) myStream<<"Sending workChunk of size "<<dx*n*n<<" to process "<<w<<endl;
 			MPI_Send((void*)buf, dx*n*n , MPI_FLOAT, w, 2, MPI_COMM_WORLD);
-			//printResult(&threeDimSpace[w*dx], dx, n, n);
-
 		}
 	}
 }
 else if(myRank>=1 && myRank <= workerCount  ) {
 	myStream<<" ======================== SLAVE# "<<myRank<<"======================"<<endl;	
-	//int tmpRank = myRank;
 	
 	MPI_Status recvStatus;
 	
@@ -248,8 +243,6 @@ else if(myRank>=1 && myRank <= workerCount  ) {
                 c3 = params[3];
                 tf = params[4];
 	
-	//cout<<"Process : "<<myRank<<" has params "<<c0<<","<<c1<<","<<c2<<","<<c3<<"  and "<<tf<<endl;
-
 	dx = n/workerCount;
 	initArray(workChunk, dx, n, n);	
 	
@@ -260,7 +253,7 @@ else if(myRank>=1 && myRank <= workerCount  ) {
 
 	MPI_Recv((void*)buf, dx*n*n , MPI_FLOAT, 0, 2 , MPI_COMM_WORLD, &recvStatus);
 	if(dbugFlag2) myStream<<"process "<<myRank<<" : serialized buffer of size "<<dx*n*n<<" recieved from process0 "<<endl;	
-	//printSerialBuffer( buf , dx*n*n);	
+
 	deserializeBuffer(workChunk, buf, dx, n, n);
 	
 	printResult(workChunk, dx, n, n);	
@@ -283,7 +276,7 @@ myStream<<"==============================================================="<<end
 
 MPI_Barrier(MPI_COMM_WORLD);
 
-/* We are down tih the input . Now Lets start MPI - Phase2 All Calculations */
+/* We are done with the input . Now Lets start MPI - Phase2 All Calculations */
 if(myRank>=1 && myRank<=workerCount)
 	{
 MPI_Request send_req[2], recv_req[2];
@@ -294,18 +287,19 @@ float* mytopLayer = new float[n*n];
 float* hisbotLayer = new float[n*n];
 float* mybotLayer = new float[n*n];
 
-//copySpace(workChunk, tmpChunk, dx, n, n);
+/* Initialize tmpChunk */
 initArray(tmpChunk, dx, n, n);
 
 for(int t=0;t< tf;t++)
 		{
-//	computeStencil(workChunk,1, 1, 1 , 1, 1, dx, n, n );	
 
+/* copy Space */
 for(int tx=0;tx<dx;tx++)
 	for(int ty=0;ty<n;ty++)
 		for(int tz=0;tz<n;tz++)
 			tmpChunk[tx][ty][tz] = workChunk[tx][ty][tz];
 	
+	/* Perform Computations */
 	for(int x=0;x<dx;x++)
 		for(int y=0;y<n;y++)
 			for(int z=0;z<n;z++)
@@ -326,6 +320,7 @@ for(int tx=0;tx<dx;tx++)
                                 workChunk[x][y][z] = tmp;			
 				}
 		
+	/* Construct own topLayer and BottomLayer */
 	for(int i=0;i<n;i++)
 		for(int j=0;j<n;j++)
 			{
@@ -333,6 +328,7 @@ for(int tx=0;tx<dx;tx++)
 			mybotLayer[i*n+j] = tmpChunk[0][i][j];
 			}	
 		
+	/* Send and recieve top/bottom layers among themselves */
 		if(myRank < workerCount) {
 					MPI_Isend(mytopLayer, n*n, MPI_FLOAT, myRank+1 , 10 + 2 * t, MPI_COMM_WORLD , & send_req[ 0 ] );
 					MPI_Irecv(hisbotLayer, n*n, MPI_FLOAT, myRank +1, 11 + 2 * t, MPI_COMM_WORLD , & recv_req[ 0 ] );
@@ -349,7 +345,7 @@ for(int tx=0;tx<dx;tx++)
 		if(myRank < workerCount) MPI_Wait(&send_req[0], &stat);
 		if(myRank > 1)	MPI_Wait(&send_req[1], &stat);
 		
-		
+	/* Do upate on topLayes/bottom layer by using info gained from neighbour */	
 		for(int i=0;i<n;i++)
 			for(int j=0;j<n;j++)
 				{
@@ -361,7 +357,7 @@ for(int tx=0;tx<dx;tx++)
 				}
 		
 	}
-
+/* Deleye buffers */
 delete[] mytopLayer;
 delete[] histopLayer;
 delete[] hisbotLayer;
@@ -381,7 +377,7 @@ float* buf = new float[dx*n*n];
 for(int i=1;i<=workerCount;i++)
 		{
 		MPI_Recv((void*)buf, dx*n*n, MPI_FLOAT, i, 3,  MPI_COMM_WORLD, &recvStatus);
-		//deserializeBuffer(&finalResult[(i-1)*dx], buf, dx, n, n);		
+		/* deserialize the buffer */
 		int ctr = 0;
 		for(int x=0;x<dx;x++)
 			for(int y=0;y<n;y++)
@@ -404,7 +400,11 @@ else if(myRank>=1 && myRank<=workerCount)
 
 MPI_Barrier(MPI_COMM_WORLD);
 MPI_Finalize();
-//cout<<myStream.str();
+if(dumpSelfStream)
+	{
+cout<<myStream.str();
+	}
+
 if(myRank == 0)
 	{
 		for(int i=0;i<n;i++)
