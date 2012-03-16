@@ -370,10 +370,24 @@ for(int tx=0;tx<dx;tx++)
 			for(int j=0;j<n;j++)
 				{
 				if(myRank > 1)
-					workChunk[0][i][j]+= (c1+c2+c3)*(histopLayer[i*n+j]);
-				
+					{	
+					workChunk[0][i][j]+= (c1)*(histopLayer[i*n+j]);
+					workChunk[0][i][j]+= (c2)*(histopLayer[n*n+i*n+j]);
+					workChunk[0][i][j]+= (c3)*(histopLayer[2*n*n+i*n+j]);
+					workChunk[1][i][j]+= (c2)*(histopLayer[i*n+j]);
+					workChunk[1][i][j]+= (c3)*(histopLayer[n*n+i*n+j]);
+					workChunk[2][i][j]+= (c3)*(histopLayer[i*n+j]);
+					}
+
 				if(myRank < workerCount)
-					workChunk[dx-1][i][j]+= (c1+c2+c3)*(hisbotLayer[i*n+j]);
+					{
+					workChunk[dx-1][i][j]+= (c1)*(hisbotLayer[i*n+j]);
+					workChunk[dx-1][i][j]+= (c2)*(hisbotLayer[n*n+i*n+j]);
+					workChunk[dx-1][i][j]+= (c3)*(hisbotLayer[2*n*n+i*n+j]);
+					workChunk[dx-2][i][j]+= (c2)*(hisbotLayer[i*n+j]);
+					workChunk[dx-2][i][j]+= (c3)*(hisbotLayer[n*n+i*n+j]);
+					workChunk[dx-3][i][j]+= (c3)*(hisbotLayer[i*n+j]);
+					}
 				}
 		
 	}
