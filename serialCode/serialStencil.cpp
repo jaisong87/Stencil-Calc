@@ -4,24 +4,24 @@ using namespace std;
 bool enableDebug = false;
 
 /* check for mem-issues*/
-bool initArray(float ***& threeDimSpace, int xD, int yD, int zD)
+bool initArray(double ***& threeDimSpace, int xD, int yD, int zD)
 {
 	if(enableDebug)
 		cout<<"Creating "<<xD<<"X"<<yD<<"X"<<zD<<" space for stencil computations"<<endl;
 
-	threeDimSpace = new float**[xD];
+	threeDimSpace = new double**[xD];
 
 	for(int i=0;i<xD;i++)
 	{
-		threeDimSpace[i] = new float*[yD];
+		threeDimSpace[i] = new double*[yD];
 		for(int j=0;j<yD;j++)
-			threeDimSpace[i][j] = new float[zD];
+			threeDimSpace[i][j] = new double[zD];
 	}
 	return true; /* Success! */
 }
 
 /* To Deallocate the array */
-bool cleanArray(float ***& threeDimSpace, int xD, int yD, int zD)
+bool cleanArray(double ***& threeDimSpace, int xD, int yD, int zD)
 {
 	if(enableDebug)
 		cout<<"Freeing "<<xD<<"X"<<yD<<"X"<<zD<<" space for stencil computations"<<endl;
@@ -38,7 +38,7 @@ bool cleanArray(float ***& threeDimSpace, int xD, int yD, int zD)
 }
 
 /* print Result */
-void printResult(float *** threeDimSpace, int xD, int yD, int zD)
+void printResult(double *** threeDimSpace, int xD, int yD, int zD)
 {
 for(int x=0;x<xD;x++,cout<<endl)
 	for(int y=0;y<yD;y++,cout<<endl)
@@ -53,7 +53,7 @@ return;
  * There is no check for mallocs, frees, wild-ptrs etc
  * Use all the functions carefully
  */
-void copySpace(float ***& src, float***& dst, int xD, int yD, int zD)
+void copySpace(double ***& src, double***& dst, int xD, int yD, int zD)
 {
 	if(enableDebug)
 		cout<<"Copying from "<<xD<<"X"<<yD<<"X"<<zD<<" original space for stencil computations"<<endl;
@@ -66,9 +66,11 @@ return;
 }
 
 /*Perform stenicl Compuatations */
-void computeStencil(float ***& threeDimSpace, float c0, float c1, float c2, float c3, int tf, int xD, int yD, int zD)
+void computeStencil(double ***& threeDimSpace, double c0, double c1, double c2, double c3, int tf, int xD, int yD, int zD)
 {
-float *** tmpSpace;
+double xaxis, yaxis, zaxis;
+double *** tmpSpace;
+double C[4] = { c0,c1,c2,c3};
 initArray(tmpSpace, xD, yD, zD);
 for(int t=1;t<=tf;t++)
 	{
@@ -77,29 +79,49 @@ for(int t=1;t<=tf;t++)
 	for(int x =0;x<xD;x++)
 		for(int y=0;y<yD;y++)
 			for(int z=0;z<zD;z++)
+			{
+				xaxis = yaxis = zaxis = 0;
+				double tmp = 0; 
+				for(int dis=1;dis<=3;dis++)
 				{
-				float tmp = c0*tmpSpace[x][y][z];
+				xaxis = yaxis = zaxis = 0;
 
-				if(z<(zD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y][z+1];
-				if(z>0) tmp+=(c1+c2+c3)*tmpSpace[x][y][z-1];
-	
-			
-				if(y<(yD-1)) tmp+=(c1+c2+c3)*tmpSpace[x][y+1][z];
-				if(y>0) tmp+=(c1+c2+c3)*tmpSpace[x][y-1][z];
-				
-				if(x<(xD-1)) tmp+=(c1+c2+c3)*tmpSpace[x+1][y][z];
-				if(x>0) tmp+=(c1+c2+c3)*tmpSpace[x-1][y][z];
-				
-				threeDimSpace[x][y][z] = tmp;
+					if(z<(zD-dis)) { tmp+=(C[dis])*tmpSpace[x][y][z+dis];
+								zaxis += tmpSpace[x][y][z+dis];
+							}
+					if(z>=dis) { tmp+=(C[dis])*tmpSpace[x][y][z-dis];
+						zaxis += tmpSpace[x][y][z-dis];
+							}
+
+					if(y<(yD-dis)) { tmp+=(C[dis])*tmpSpace[x][y+dis][z];
+								yaxis += tmpSpace[x][y+dis][z];
+							}
+					
+					if(y>=dis) { tmp+=(C[dis])*tmpSpace[x][y-dis][z];
+								yaxis += tmpSpace[x][y-dis][z];
+							}
+
+					if(x<(xD-dis)) { tmp+=(C[dis])*tmpSpace[x+dis][y][z];
+								xaxis += tmpSpace[x+dis][y][z];
+							}
+					if(x>=dis) { tmp+=(C[dis])*tmpSpace[x-dis][y][z];
+								xaxis += tmpSpace[x-dis][y][z];
+							}
+
+				//cout<<"<"<<x<<","<<y<<","<<z<<"> => "<<tmpSpace[x][y][z]<<' '<<xaxis<<' '<<yaxis<<' '<<zaxis<<' '<<C[dis]<<" => "<<tmp<<endl;
 				}
+				tmp+= c0*tmpSpace[x][y][z];
+				//cout<<"<"<<x<<","<<y<<","<<z<<"> => "<<tmpSpace[x][y][z]<<' '<<xaxis<<' '<<yaxis<<' '<<zaxis<<' '<<c0<<" => "<<tmp<<endl;
+				threeDimSpace[x][y][z] = tmp;
+			}
 	}
 }
 
 int main()
 {
 int n, q,  tf;
-float c0,c1,c2,c3; 
-float *** threeDimSpace;
+double c0,c1,c2,c3; 
+double *** threeDimSpace;
 if(cin>>q>>tf)	/* Take Arbitrary number of inputs through stdin */
 	{
 	n = q;//(1<<q);
