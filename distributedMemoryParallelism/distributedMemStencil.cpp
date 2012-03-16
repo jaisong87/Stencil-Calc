@@ -282,13 +282,16 @@ if(myRank>=1 && myRank<=workerCount)
 MPI_Request send_req[2], recv_req[2];
 MPI_Status stat;
 
-float* histopLayer = new float[n*n];
-float* mytopLayer = new float[n*n];
-float* hisbotLayer = new float[n*n];
-float* mybotLayer = new float[n*n];
+float* histopLayer = new float[3*n*n];
+float* mytopLayer = new float[3*n*n];
+float* hisbotLayer = new float[3*n*n];
+float* mybotLayer = new float[3*n*n];
 
 /* Initialize tmpChunk */
 initArray(tmpChunk, dx, n, n);
+float C[4] = {c0,c1,c2,c3};
+float xaxis, yaxis, zaxis;
+xaxis = yaxis =zaxis = 0;
 
 for(int t=0;t< tf;t++)
 		{
@@ -304,28 +307,45 @@ for(int tx=0;tx<dx;tx++)
 		for(int y=0;y<n;y++)
 			for(int z=0;z<n;z++)
 				{	
-						
-				float tmp = c0*tmpChunk[x][y][z];
-				
-                                if(z<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y][z+1];
-                                if(z>0) tmp+=(c1+c2+c3)*tmpChunk[x][y][z-1];
+			   double tmp = 0;
+                                for(int dis=1;dis<=3;dis++)
+                                {
+                                xaxis = yaxis = zaxis = 0;
 
+                                        if(z<(n-dis)) { tmp+=(C[dis])*tmpChunk[x][y][z+dis];
+                                                                zaxis += tmpChunk[x][y][z+dis];
+                                                        }
+                                        if(z>=dis) { tmp+=(C[dis])*tmpChunk[x][y][z-dis];
+                                                zaxis += tmpChunk[x][y][z-dis];
+                                                        }
 
-                                if(y<(n-1)) tmp+=(c1+c2+c3)*tmpChunk[x][y+1][z];
-                                if(y>0) tmp+=(c1+c2+c3)*tmpChunk[x][y-1][z];
+                                        if(y<(n-dis)) { tmp+=(C[dis])*tmpChunk[x][y+dis][z];
+                                                                yaxis += tmpChunk[x][y+dis][z];
+                                                        }
 
-                                if(x<(dx-1)) tmp+=(c1+c2+c3)*tmpChunk[x+1][y][z];
-                                if(x>0) tmp+=(c1+c2+c3)*tmpChunk[x-1][y][z];
-				
-                                workChunk[x][y][z] = tmp;			
+                                        if(y>=dis) { tmp+=(C[dis])*tmpChunk[x][y-dis][z];
+                                                                yaxis += tmpChunk[x][y-dis][z];
+                                                        }
+
+                                        if(x<(n-dis)) { tmp+=(C[dis])*tmpChunk[x+dis][y][z];
+                                                                xaxis += tmpChunk[x+dis][y][z];
+                                                        }
+                                        if(x>=dis) { tmp+=(C[dis])*tmpChunk[x-dis][y][z];
+                                                                xaxis += tmpChunk[x-dis][y][z];
+                                                        }
+
+                                }
+                                tmp+= c0*tmpChunk[x][y][z];
+                                workChunk[x][y][z] = tmp;
 				}
 		
 	/* Construct own topLayer and BottomLayer */
 	for(int i=0;i<n;i++)
 		for(int j=0;j<n;j++)
+		  for(int l=0;l<3;l++)	
 			{
-			mytopLayer[i*n+j] = tmpChunk[dx-1][i][j];
-			mybotLayer[i*n+j] = tmpChunk[0][i][j];
+			mytopLayer[l*n*n+i*n+j] = tmpChunk[dx-l-1][i][j];
+			mybotLayer[l*n*n+i*n+j] = tmpChunk[l][i][j];
 			}	
 		
 	/* Send and recieve top/bottom layers among themselves */
